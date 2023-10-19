@@ -1,0 +1,7 @@
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  call-workflow-1-in-local-repo:
+    uses: DandeLionAnimationStudioLab/.github/.github/workflows/genarate-docs.yml@main
