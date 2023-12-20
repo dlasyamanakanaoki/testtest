@@ -1,6 +1,6 @@
 # testtest
 
-```yml: test.yml
+```yml:test.yml
 aaa:
   bbb:
     - ccc
