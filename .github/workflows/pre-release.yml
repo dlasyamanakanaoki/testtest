@@ -1,7 +1,10 @@
 name: pre-release
 run-name: pre-release
 on:
-  create
+  push:
+    branches:
+      - feature/*
+      - hotfix/*
 jobs:
   create-release-pr:
     runs-on: ubuntu-latest
