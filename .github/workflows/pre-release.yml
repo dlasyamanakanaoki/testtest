@@ -1,0 +1,46 @@
+name: pre-release
+run-name: pre-release
+on:
+  create
+jobs:
+  create-release-pr:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Check Ref
+        shell: bash
+        id: check_ref
+        run: |
+          ACTION_TYPE="NONE"
+          if [[ ${GITHUB_REF} =~ ^refs/heads/(feature|hotfix)/(.+)$ ]]; then
+            BRANCH_TYPE=${BASH_REMATCH[1]}
+            BRANCH_NAME=${BASH_REMATCH[2]}
+            ACTION_TYPE="BRANCH"
+            echo "ACTION_TYPE=${ACTION_TYPE}" >> "$GITHUB_OUTPUT"
+            echo "BRANCH_TYPE=${BRANCH_TYPE}" >> "$GITHUB_OUTPUT"
+            echo "BRANCH_NAME=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
+          elif [[ ${GITHUB_REF} =~ ^refs/tags/(.+)$ ]]; then
+            TAG_NAME=${BASH_REMATCH[1]}
+            ACTION_TYPE="TAG"
+            echo "ACTION_TYPE=${ACTION_TYPE}" >> "$GITHUB_OUTPUT"
+            echo "TAG_NAME: ${TAG_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ACTION_TYPE=${ACTION_TYPE}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Release Pull Request
+        if: steps.check_ref.outputs.ACTION_TYPE == 'BRANCH'
+        run: |
+          gh pr create \
+            -B ${{ github.event.repository.default_branch }} \
+            -t '[generated][${{ steps.check_ref.outputs.BRANCH_TYPE }}]${{ steps.check_ref.outputs.BRANCH_NAME }}' \
+            -a ${{ github.actor }}
+
+      - name: Create Release Object
+        if: steps.check_ref.outputs.ACTION_TYPE == 'TAG'
+        run: |
+          echo ${{ steps.check_ref.outputs.TAG_NAME }}
