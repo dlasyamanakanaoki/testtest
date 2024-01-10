@@ -12,7 +12,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Check Ref
         shell: bash
@@ -34,6 +34,50 @@ jobs:
           else
             echo "ACTION_TYPE=${ACTION_TYPE}" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Update minor version
+        if: steps.check_ref.outputs.ACTION_TYPE == 'BRANCH' && steps.check_ref.outputs.BRANCH_TYPE == 'feature'
+        shell: bash
+        id: update_minor_version
+        run: |
+          VERSION_FILE_PATH=version.txt
+          VERSION_TXT=`cat ${VERSION_FILE_PATH}`
+
+          if [[ ${VERSION_TXT} =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            NEW_VERSION="v${BASH_REMATCH[1]}.$((BASH_REMATCH[2] + 1)).0"
+            printf ${NEW_VERSION} > ${VERSION_FILE_PATH} 
+            echo "update version number ${VERSION_TXT} > ${NEW_VERSION}"
+          else
+            NEW_VERSION=v1.0.0
+            printf ${NEW_VERSION} > ${VERSION_FILE_PATH} 
+            echo "update version number ${VERSION_TXT} > ${NEW_VERSION}"
+          fi
+
+      - name: Update patch version
+        if: steps.check_ref.outputs.ACTION_TYPE == 'BRANCH' && steps.check_ref.outputs.BRANCH_TYPE == 'hotfix'
+        shell: bash
+        id: update_patch_version
+        run: |
+          VERSION_FILE_PATH=version.txt
+          VERSION_TXT=`cat ${VERSION_FILE_PATH}`
+
+          if [[ ${VERSION_TXT} =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            NEW_VERSION="v${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1))"
+            printf ${NEW_VERSION} > ${VERSION_FILE_PATH} 
+            echo "update version number ${VERSION_TXT} > ${NEW_VERSION}"
+          else
+            NEW_VERSION=v1.0.0
+            printf ${NEW_VERSION} > ${VERSION_FILE_PATH} 
+            echo "update version number ${VERSION_TXT} > ${NEW_VERSION}"
+          fi
+
+      - name: Commit version.txt
+        if: steps.check_ref.outputs.ACTION_TYPE == 'BRANCH'
+        shell: bash
+        id: commit_version_txt
+        run: |
+          git add version.txt
+          git commit -m "update version.txt"
 
       - name: Create Release Pull Request
         if: steps.check_ref.outputs.ACTION_TYPE == 'BRANCH'
