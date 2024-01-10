@@ -74,7 +74,7 @@ jobs:
             NEW_VERSION=v1.0.0
           fi
 
-          GIT_DIFF=`git diff $(git merge-base origin/main HEAD) version.txt`
+          GIT_DIFF=`git diff $(git merge-base origin/${{ github.event.repository.default_branch }} HEAD) version.txt`
           if ["$GIT_DIFF" = ""]; then
             NEW_VERSION_NUMBER=`increment_minor_version $VERSION_TXT`
             check_tag $NEW_VERSION_NUMBER
@@ -134,7 +134,7 @@ jobs:
             NEW_VERSION=v1.0.0
           fi
 
-          GIT_DIFF=`git diff $(git merge-base origin/main HEAD) version.txt`
+          GIT_DIFF=`git diff $(git merge-base origin/${{ github.event.repository.default_branch }} HEAD) version.txt`
           if ["$GIT_DIFF" = ""]; then
             NEW_VERSION_NUMBER=`increment_patch_version $VERSION_TXT`
             check_tag $NEW_VERSION_NUMBER
@@ -177,11 +177,14 @@ jobs:
       - name: Create Release Pull Request
         if: steps.check_ref.outputs.ACTION_TYPE == 'BRANCH'
         run: |
-          gh pr create \
-            -B ${{ github.event.repository.default_branch }} \
-            -t '[generated][${{ steps.check_ref.outputs.BRANCH_TYPE }}]${{ steps.check_ref.outputs.BRANCH_NAME }}' \
-            -b 'This is a generated pull request.' \
-            -a ${{ github.actor }}
+          PULL_REQUEST=`gh pr list -H ${{ steps.check_ref.outputs.BRANCH_TYPE }}/${{ steps.check_ref.outputs.BRANCH_NAME }}`
+          if [[ $PULL_REQUEST != "" ]]; then
+            gh pr create \
+              -B ${{ github.event.repository.default_branch }} \
+              -t '[generated][${{ steps.check_ref.outputs.BRANCH_TYPE }}]${{ steps.check_ref.outputs.BRANCH_NAME }}' \
+              -b 'This is a generated pull request.' \
+              -a ${{ github.actor }}
+          fi
 
       - name: Create Release Object
         if: steps.check_ref.outputs.ACTION_TYPE == 'TAG'
