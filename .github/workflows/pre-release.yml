@@ -162,7 +162,7 @@ jobs:
         shell: bash
         id: commit_version_txt
         run: |
-          GIT_DIFF=`git diff $(git merge-base origin/main HEAD) version.txt`
+          GIT_DIFF=`git diff version.txt`
           if [[ "GIT_DIFF" != "" ]]; then
             git remote set-url origin https://github-actions:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}
             git config --global user.name "${GITHUB_ACTOR}"
