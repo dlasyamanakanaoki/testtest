@@ -178,12 +178,14 @@ jobs:
         if: steps.check_ref.outputs.ACTION_TYPE == 'BRANCH'
         run: |
           PULL_REQUEST=`gh pr list -H ${{ steps.check_ref.outputs.BRANCH_TYPE }}/${{ steps.check_ref.outputs.BRANCH_NAME }}`
-          if [[ $PULL_REQUEST != "" ]]; then
+          if [[ $PULL_REQUEST == "" ]]; then
             gh pr create \
               -B ${{ github.event.repository.default_branch }} \
               -t '[generated][${{ steps.check_ref.outputs.BRANCH_TYPE }}]${{ steps.check_ref.outputs.BRANCH_NAME }}' \
               -b 'This is a generated pull request.' \
               -a ${{ github.actor }}
+          else
+            echo "aleady exists pull request"
           fi
 
       - name: Create Release Object
