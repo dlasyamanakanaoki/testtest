@@ -13,6 +13,8 @@ jobs:
   
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Check Ref
         shell: bash
@@ -30,7 +32,7 @@ jobs:
             TAG_NAME=${BASH_REMATCH[1]}
             ACTION_TYPE="TAG"
             echo "ACTION_TYPE=${ACTION_TYPE}" >> "$GITHUB_OUTPUT"
-            echo "TAG_NAME: ${TAG_NAME}" >> "$GITHUB_OUTPUT"
+            echo "TAG_NAME=${TAG_NAME}" >> "$GITHUB_OUTPUT"
           else
             echo "ACTION_TYPE=${ACTION_TYPE}" >> "$GITHUB_OUTPUT"
           fi
@@ -43,14 +45,56 @@ jobs:
           VERSION_FILE_PATH=version.txt
           VERSION_TXT=`cat ${VERSION_FILE_PATH}`
 
+          function increment_minor_version() {
+            if [[ ${1} =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              NEW_VERSION="v${BASH_REMATCH[1]}.$((BASH_REMATCH[2] + 1)).0"
+            else
+              NEW_VERSION=v1.0.0
+            fi
+            printf "$NEW_VERSION"
+          }
+
+          function check_tag() {
+            IS_EXISTS_TAG=false
+            while read line; do
+              if [ "$line" = "${1}" ]; then
+                IS_EXISTS_TAG=true
+              fi
+            done < <(git tag)
+            RETURN_VALUE=0
+            if $IS_EXISTS_TAG; then
+              RETURN_VALUE=1
+            fi
+            return $RETURN_VALUE
+          }
+
           if [[ ${VERSION_TXT} =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-            NEW_VERSION="v${BASH_REMATCH[1]}.$((BASH_REMATCH[2] + 1)).0"
-            printf ${NEW_VERSION} > ${VERSION_FILE_PATH} 
-            echo "update version number ${VERSION_TXT} > ${NEW_VERSION}"
+            NEW_VERSION_NUMBER="v${BASH_REMATCH[1]}.$((BASH_REMATCH[2] + 1)).0"
           else
             NEW_VERSION=v1.0.0
-            printf ${NEW_VERSION} > ${VERSION_FILE_PATH} 
-            echo "update version number ${VERSION_TXT} > ${NEW_VERSION}"
+          fi
+
+          GIT_DIFF=`git diff $(git merge-base origin/${{ github.event.repository.default_branch }} HEAD) version.txt`
+          if ["$GIT_DIFF" = ""]; then
+            NEW_VERSION_NUMBER=`increment_minor_version $VERSION_TXT`
+            check_tag $NEW_VERSION_NUMBER
+            IS_EXISTS_TAG=$?
+            if [ $IS_EXISTS_TAG -eq 1 ]; then
+              echo "aleady exists tag $VERSION_TXT"
+              while :; do
+                  check_tag $NEW_VERSION_NUMBER
+                  IS_EXISTS_TAG=$?
+                  if [ $IS_EXISTS_TAG -eq 0 ]; then
+                    break
+                  else
+                    NEW_VERSION_NUMBER=`increment_minor_version $NEW_VERSION_NUMBER`
+                  fi
+              done
+            fi
+            printf ${NEW_VERSION_NUMBER} > ${VERSION_FILE_PATH} 
+            echo "update version number ${VERSION_TXT} > ${NEW_VERSION_NUMBER}"
+          else
+            echo "skip update version number"
           fi
 
       - name: Update patch version
@@ -61,14 +105,56 @@ jobs:
           VERSION_FILE_PATH=version.txt
           VERSION_TXT=`cat ${VERSION_FILE_PATH}`
 
+          function increment_patch_version() {
+            if [[ ${1} =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              NEW_VERSION="v${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1))"
+            else
+              NEW_VERSION=v1.0.0
+            fi
+            printf "$NEW_VERSION"
+          }
+
+          function check_tag() {
+            IS_EXISTS_TAG=false
+            while read line; do
+              if [ "$line" = "${1}" ]; then
+                IS_EXISTS_TAG=true
+              fi
+            done < <(git tag)
+            RETURN_VALUE=0
+            if $IS_EXISTS_TAG; then
+              RETURN_VALUE=1
+            fi
+            return $RETURN_VALUE
+          }
+
           if [[ ${VERSION_TXT} =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-            NEW_VERSION="v${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1))"
-            printf ${NEW_VERSION} > ${VERSION_FILE_PATH} 
-            echo "update version number ${VERSION_TXT} > ${NEW_VERSION}"
+            NEW_VERSION_NUMBER="v${BASH_REMATCH[1]}.$((BASH_REMATCH[2] + 1)).0"
           else
             NEW_VERSION=v1.0.0
-            printf ${NEW_VERSION} > ${VERSION_FILE_PATH} 
-            echo "update version number ${VERSION_TXT} > ${NEW_VERSION}"
+          fi
+
+          GIT_DIFF=`git diff $(git merge-base origin/${{ github.event.repository.default_branch }} HEAD) version.txt`
+          if ["$GIT_DIFF" = ""]; then
+            NEW_VERSION_NUMBER=`increment_patch_version $VERSION_TXT`
+            check_tag $NEW_VERSION_NUMBER
+            IS_EXISTS_TAG=$?
+            if [ $IS_EXISTS_TAG -eq 1 ]; then
+              echo "aleady exists tag $VERSION_TXT"
+              while :; do
+                  check_tag $NEW_VERSION_NUMBER
+                  IS_EXISTS_TAG=$?
+                  if [ $IS_EXISTS_TAG -eq 0 ]; then
+                    break
+                  else
+                    NEW_VERSION_NUMBER=`increment_patch_version $NEW_VERSION_NUMBER`
+                  fi
+              done
+            fi
+            printf ${NEW_VERSION_NUMBER} > ${VERSION_FILE_PATH} 
+            echo "update version number ${VERSION_TXT} > ${NEW_VERSION_NUMBER}"
+          else
+            echo "skip update version number"
           fi
 
       - name: Commit version.txt
@@ -76,21 +162,31 @@ jobs:
         shell: bash
         id: commit_version_txt
         run: |
-          git remote set-url origin https://github-actions:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}
-          git config --global user.name "${GITHUB_ACTOR}"
-          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-          git add version.txt
-          git commit -m "update version.txt"
-          git push origin HEAD:${GITHUB_REF}
+          GIT_DIFF=`git diff version.txt`
+          if [[ "$GIT_DIFF" != "" ]]; then
+            git remote set-url origin https://github-actions:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}
+            git config --global user.name "${GITHUB_ACTOR}"
+            git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+            git add version.txt
+            git commit -m "update version.txt"
+            git push origin HEAD:${GITHUB_REF}
+          else
+            echo "no changed"
+          fi
 
       - name: Create Release Pull Request
         if: steps.check_ref.outputs.ACTION_TYPE == 'BRANCH'
         run: |
-          gh pr create \
-            -B ${{ github.event.repository.default_branch }} \
-            -t '[generated][${{ steps.check_ref.outputs.BRANCH_TYPE }}]${{ steps.check_ref.outputs.BRANCH_NAME }}' \
-            -b 'This is a generated pull request.' \
-            -a ${{ github.actor }}
+          PULL_REQUEST=`gh pr list -H ${{ steps.check_ref.outputs.BRANCH_TYPE }}/${{ steps.check_ref.outputs.BRANCH_NAME }}`
+          if [[ $PULL_REQUEST == "" ]]; then
+            gh pr create \
+              -B ${{ github.event.repository.default_branch }} \
+              -t '[generated][${{ steps.check_ref.outputs.BRANCH_TYPE }}]${{ steps.check_ref.outputs.BRANCH_NAME }}' \
+              -b 'This is a generated pull request.' \
+              -a ${{ github.actor }}
+          else
+            echo "aleady exists pull request"
+          fi
 
       - name: Create Release Object
         if: steps.check_ref.outputs.ACTION_TYPE == 'TAG'
