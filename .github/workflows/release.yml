@@ -20,7 +20,7 @@ jobs:
           VERSION_NUMBER=$(cat version.txt)
           git tag ${VERSION_NUMBER}
           git push origin ${VERSION_NUMBER}
-          echo "VERSION_NUMBER=${VERSION_NUMBER}" >> $GITHUB_ENV
+          echo "VERSION_NUMBER=${VERSION_NUMBER}" >> "$GITHUB_OUTPUT"
 
       - name: Create Release
         id: create_release
