@@ -13,8 +13,8 @@ jobs:
   
     steps:
       - uses: actions/checkout@v4
-
-      - run: git fetch origin ${{ github.base_ref }} --depth=1
+        with:
+          fetch-depth: 0
 
       - name: Check Ref
         shell: bash
@@ -74,7 +74,7 @@ jobs:
             NEW_VERSION=v1.0.0
           fi
 
-          GIT_DIFF=`git diff $(git merge-base ${{ github.base_ref }} HEAD) version.txt`
+          GIT_DIFF=`git diff $(git merge-base origin/main HEAD) version.txt`
           if ["$GIT_DIFF" = ""]; then
             NEW_VERSION_NUMBER=`increment_minor_version $VERSION_TXT`
             check_tag $NEW_VERSION_NUMBER
@@ -134,7 +134,7 @@ jobs:
             NEW_VERSION=v1.0.0
           fi
 
-          GIT_DIFF=`git diff main version.txt`
+          GIT_DIFF=`git diff $(git merge-base origin/main HEAD) version.txt`
           if ["$GIT_DIFF" = ""]; then
             NEW_VERSION_NUMBER=`increment_patch_version $VERSION_TXT`
             check_tag $NEW_VERSION_NUMBER
