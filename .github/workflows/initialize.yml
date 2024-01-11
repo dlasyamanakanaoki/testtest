@@ -1,0 +1,17 @@
+name: initialize
+run-name: initialize
+on:
+  create
+
+jobs:
+  initiallize-repository:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
+    steps:
+      - name: initialize repository
+        shell: bash
+        id: initialize_repository
+        run: |
+          echo "initializing repository"
